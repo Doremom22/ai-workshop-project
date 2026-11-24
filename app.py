@@ -41,7 +41,7 @@ def index():
         "GET /api/events/<id>",
         "POST /api/registrations",
         "GET /api/me/registrations?user_id=<uuid>",
-        "GET /api/events/<id>/registrations?user_id=<organizer_uuid>",
+        "GET /api/events/<id>/registrations",
     ])
 
 
@@ -127,18 +127,16 @@ def my_registrations():
 
 @app.get("/api/events/<event_id>/registrations")
 def event_registrations(event_id):
-    event_id, user_id = valid_uuid(event_id), valid_uuid(request.args.get("user_id"))
-    if not event_id or not user_id:
-        return jsonify(error="Valid event id and organizer user_id are required"), 400
+    event_id = valid_uuid(event_id)
+    if not event_id:
+        return jsonify(error="Invalid event id"), 400
     client, error = database()
     if error:
         return error
     try:
-        event_result = client.table("events").select("organizer_id").eq("id", event_id).maybe_single().execute()
+        event_result = client.table("events").select("id").eq("id", event_id).maybe_single().execute()
         if not event_result.data:
             return jsonify(error="Event not found"), 404
-        if event_result.data.get("organizer_id") != user_id:
-            return jsonify(error="Only the event organizer can view attendees"), 403
         result = client.table("registrations").select("*, users(id,email,role)").eq("event_id", event_id).execute()
         return jsonify(result.data)
     except APIError as exc:
